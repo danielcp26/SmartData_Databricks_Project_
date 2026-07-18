@@ -20,8 +20,8 @@ jobs:
       run: |
         ORIGIN_HOST=${{ secrets.DATABRICKS_ORIGIN_HOST }}
         ORIGIN_TOKEN=${{ secrets.DATABRICKS_ORIGIN_TOKEN }}
-        NOTEBOOK_BASE="/Workspace/Users/instructor_datasmartada@outlook.com/source"
-        NOTEBOOKS=("mount_adls_storage" "mount_adls_storage_v1" "Disparador")  # Agrega más según necesitesas
+        NOTEBOOK_BASE="/Workspace/Users/danielchsk8_gmail.com#ext#@danielchsk8gmail.onmicrosoft.com/SmartData_Databricks_Project_"
+        EXPORT_PATH="./SmartData_Databricks_Project_"
 
         mkdir -p notebooks_to_deploy
 
