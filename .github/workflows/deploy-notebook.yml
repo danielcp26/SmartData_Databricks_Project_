@@ -10,60 +10,104 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: Checkout Repository
-      uses: actions/checkout@v3
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
-    - name: Install jq & curl
-      run: sudo apt-get update && sudo apt-get install -y jq curl
+      - name: Install jq and curl
+        run: sudo apt-get update && sudo apt-get install -y jq curl
 
-    - name: Export multiple notebooks (raw)
-      run: |
-        ORIGIN_HOST=${{ secrets.DATABRICKS_ORIGIN_HOST }}
-        ORIGIN_TOKEN=${{ secrets.DATABRICKS_ORIGIN_TOKEN }}
-        NOTEBOOK_BASE="/Workspace/Users/danielchsk8_gmail.com#ext#@danielchsk8gmail.onmicrosoft.com/SmartData_Databricks_Project_"
-        NOTEBOOKS=("1. Enviroment_Preparation", "2. Ingest_Category_Translation", "2. Ingest_Customers", "2. Ingest_Order_Items", "2. Ingest_Orders", "2. Ingest_Payments", "2. Ingest_Products", "3. Transform", "4. Load", "Drop_tables")
+      - name: Export multiple notebooks
+        shell: bash
+        run: |
+          set -euo pipefail
 
-        mkdir -p notebooks_to_deploy
+          ORIGIN_HOST="${{ secrets.DATABRICKS_ORIGIN_HOST }}"
+          ORIGIN_TOKEN="${{ secrets.DATABRICKS_ORIGIN_TOKEN }}"
 
-        for nb in "${NOTEBOOKS[@]}"; do
-          echo "Exportando $nb en modo raw..."
-          curl -s -X GET \
-            -H "Authorization: Bearer $ORIGIN_TOKEN" \
-            "$ORIGIN_HOST/api/2.0/workspace/export?path=$NOTEBOOK_BASE/$nb&format=SOURCE&direct_download=true" \
-            --output "notebooks_to_deploy/$nb.py"
-        done
+          NOTEBOOK_BASE="/Workspace/Users/danielchsk8_gmail.com#ext#@danielchsk8gmail.onmicrosoft.com/SmartData_Databricks_Project_"
 
-    - name: Deploy notebooks to Destination Workspace
-      run: |
-        DEST_HOST=${{ secrets.DATABRICKS_DEST_HOST }}
-        DEST_TOKEN=${{ secrets.DATABRICKS_DEST_TOKEN }}
-        DEST_BASE="/py"
+          NOTEBOOKS=(
+            "1. Enviroment_Preparation"
+            "2. Ingest_Category_Translation"
+            "2. Ingest_Customers"
+            "2. Ingest_Order_Items"
+            "2. Ingest_Orders"
+            "2. Ingest_Payments"
+            "2. Ingest_Products"
+            "3. Transform"
+            "4. Load"
+            "Drop_tables"
+          )
 
-        for file in notebooks_to_deploy/*.py; do
-          name=$(basename "$file" .py)
-          dest_path="$DEST_BASE/$name"
+          mkdir -p notebooks_to_deploy
+
+          for nb in "${NOTEBOOKS[@]}"; do
+            echo "Exportando: $nb"
+
+            curl --fail-with-body --silent --show-error \
+              --get \
+              -H "Authorization: Bearer $ORIGIN_TOKEN" \
+              --data-urlencode "path=$NOTEBOOK_BASE/$nb" \
+              --data-urlencode "format=SOURCE" \
+              --data-urlencode "direct_download=true" \
+              "$ORIGIN_HOST/api/2.0/workspace/export" \
+              --output "notebooks_to_deploy/$nb.py"
+
+            echo "Exportado correctamente: $nb"
+          done
+
+      - name: Deploy notebooks to Destination Workspace
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          DEST_HOST="${{ secrets.DATABRICKS_DEST_HOST }}"
+          DEST_TOKEN="${{ secrets.DATABRICKS_DEST_TOKEN }}"
+          DEST_BASE="/py"
 
           echo "Creando carpeta $DEST_BASE si no existe..."
-          curl -s -X POST \
+
+          curl --fail-with-body --silent --show-error \
+            -X POST \
             -H "Authorization: Bearer $DEST_TOKEN" \
             -H "Content-Type: application/json" \
-            -d "{\"path\":\"$DEST_BASE\"}" \
+            -d "$(jq -n --arg path "$DEST_BASE" '{path: $path}')" \
             "$DEST_HOST/api/2.0/workspace/mkdirs"
 
-          echo "Importando $file → $dest_path"
-          curl -s -X POST \
-            -H "Authorization: Bearer $DEST_TOKEN" \
-            -H "Content-Type: multipart/form-data" \
-            -F "path=$dest_path" \
-            -F "format=SOURCE" \
-            -F "language=PYTHON" \
-            -F "overwrite=true" \
-            -F "content=@$file" \
-            "$DEST_HOST/api/2.0/workspace/import"
-        done
+          for file in notebooks_to_deploy/*.py; do
+            name="$(basename "$file" .py)"
+            dest_path="$DEST_BASE/$name"
 
-    - name: Clean up
-      run: rm -rf notebooks_to_deploy
+            echo "Importando: $file -> $dest_path"
 
-    - name: Done
-      run: echo "All notebooks deployed with raw content!"
+            content="$(base64 -w 0 "$file")"
+
+            payload="$(
+              jq -n \
+                --arg path "$dest_path" \
+                --arg content "$content" \
+                '{
+                  path: $path,
+                  format: "SOURCE",
+                  language: "PYTHON",
+                  overwrite: true,
+                  content: $content
+                }'
+            )"
+
+            curl --fail-with-body --silent --show-error \
+              -X POST \
+              -H "Authorization: Bearer $DEST_TOKEN" \
+              -H "Content-Type: application/json" \
+              -d "$payload" \
+              "$DEST_HOST/api/2.0/workspace/import"
+
+            echo "Importado correctamente: $name"
+          done
+
+      - name: Clean up
+        if: always()
+        run: rm -rf notebooks_to_deploy
+
+      - name: Done
+        run: echo "All notebooks deployed successfully!"
