@@ -27,22 +27,24 @@ jobs:
           NOTEBOOK_BASE="/Workspace/Users/danielchsk8_gmail.com#ext#@danielchsk8gmail.onmicrosoft.com/SmartData_Databricks_Project_"
 
           NOTEBOOKS=(
-            "1. Enviroment_Preparation"
-            "2. Ingest_Category_Translation"
-            "2. Ingest_Customers"
-            "2. Ingest_Order_Items"
-            "2. Ingest_Orders"
-            "2. Ingest_Payments"
-            "2. Ingest_Products"
-            "3. Transform"
-            "4. Load"
-            "Drop_tables"
+            "Enviroment_Prep/1. Enviroment_Preparation"
+            "Process/2. Ingest_Category_Translation"
+            "Process/2. Ingest_Customers"
+            "Process/2. Ingest_Order_Items"
+            "Process/2. Ingest_Orders"
+            "Process/2. Ingest_Payments"
+            "Process/2. Ingest_Products"
+            "Process/3. Transform"
+            "Process/4. Load"
+            "Reversion/Drop_tables"
           )
 
           mkdir -p notebooks_to_deploy
 
           for nb in "${NOTEBOOKS[@]}"; do
-            echo "Exportando: $nb"
+            notebook_name="$(basename "$nb")"
+
+            echo "Exportando: $NOTEBOOK_BASE/$nb"
 
             curl --fail-with-body --silent --show-error \
               --get \
@@ -51,9 +53,9 @@ jobs:
               --data-urlencode "format=SOURCE" \
               --data-urlencode "direct_download=true" \
               "$ORIGIN_HOST/api/2.0/workspace/export" \
-              --output "notebooks_to_deploy/$nb.py"
+              --output "notebooks_to_deploy/$notebook_name.py"
 
-            echo "Exportado correctamente: $nb"
+            echo "Exportado correctamente: $notebook_name"
           done
 
       - name: Deploy notebooks to Destination Workspace
