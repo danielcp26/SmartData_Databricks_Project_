@@ -21,7 +21,7 @@ jobs:
         ORIGIN_HOST=${{ secrets.DATABRICKS_ORIGIN_HOST }}
         ORIGIN_TOKEN=${{ secrets.DATABRICKS_ORIGIN_TOKEN }}
         NOTEBOOK_BASE="/Workspace/Users/danielchsk8_gmail.com#ext#@danielchsk8gmail.onmicrosoft.com/SmartData_Databricks_Project_"
-        EXPORT_PATH="./SmartData_Databricks_Project_"
+        NOTEBOOKS=("1. Enviroment_Preparation", "2. Ingest_Category_Translation", "2. Ingest_Customers", "2. Ingest_Order_Items", "2. Ingest_Orders", "2. Ingest_Payments", "2. Ingest_Products", "3. Transform", "4. Load", "Drop_tables")
 
         mkdir -p notebooks_to_deploy
 
